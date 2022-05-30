@@ -1,54 +1,59 @@
-from sympy import isprime
+import socket
+import views
+
+URLS = {
+    '/': views.index,
+    '/blog': views.blog
+    }
+
+def parse_request(request):
+    parsed = request.split(' ')
+    method = parsed[0]
+    url = parsed[1]
+    return (method, url)
 
 
-def isitprime(k):
-    if k == 2 or k == 3:
-        return True
-    if k % 2 == 0 or k < 2:
-        return False
-    for i in range(3, int(k ** 0.5) + 1, 2):
-        if k % i == 0:
-            return False
-    return True
+def generate_headers(method, url):
+    if not method == 'GET':
+        return  ('HTTP/1.1 405 Method not allowed\n\n', 405)
+
+    if not url in URLS:
+        return ('HTTP/1.1 404 Not found\n\n', 404)
+
+    return ('HTTP/1.1 200 OK\n\n', 200)
+
+def generate_content(code, url):
+    if code == 404:
+        return '<h1>404</h1><p>Not found</p>'
+    if code == 405:
+        return '<h1>405</h1><p>Method not allowed</p>'
+    return URLS[url]()
+
+def generate_response(request):
+    method, url = parse_request(request)
+    headers, code = generate_headers(method, url)
+    body = generate_content(code, url)
+
+    return (headers + body).encode()
+
+def run():
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind(('127.0.0.1', 5000))
+    server_socket.listen()
+
+    while True:
+        client_socket, addr = server_socket.accept()
+        request = client_socket.recv(1024)
+        print(request)
+        print()
+        print(addr)
+
+        response = generate_response(request.decode('utf-8'))
+
+        client_socket.sendall(response)
+        client_socket.close()
 
 
-text = "The quick brown fox jumps over the lazy dog"
-for word in text.split():
-    print(word)
-
-my_list = list(range(3, 43))
-my_list_square = [i ** 2 for i in my_list]
-print(my_list_square)
-
-my_dict = {i: str(i) * 3 for i in my_list_square}
-print(my_dict)
-
-
-def list_of_prime_digits1(*args):
-    sp = []
-    for digit in args:
-        if isprime(digit):
-            sp.append(digit)
-    return sp
-
-
-def list_of_prime_digits2(*args):
-    sp = []
-    for digit in args:
-        if isitprime(digit):
-            sp.append(digit)
-    return sp
-
-
-print(list_of_prime_digits1(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
-print(list_of_prime_digits2(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
-
-
-def uniqe_chars(string):
-    set_of_char = set()
-    for char in string:
-        set_of_char.add(char)
-    return list(set_of_char)
-
-
-print(uniqe_chars('abcdefabccccddddeeeeffffz'))
+if __name__ == '__main__':
+    run()
